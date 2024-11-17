@@ -15,10 +15,10 @@
 #define TFT_OLIVE 0x7BE0                    /* 128, 128,   0 */
 #define TFT_LIGHTGREY 0xD69A                /* 211, 211, 211 */
 #define TFT_DARKGREY 0x7BEF                 /* 128, 128, 128 */
-#define TFT_BLUE 0x001F                     /*   0,   0, 255 */  
-#define TFT_GREEN 0x07E0                    /*   0, 255,   0 */  
-#define TFT_CYAN 0x07FF                     /*   0, 255, 255 */  
-#define TFT_RED 0xF800                      /* 255,   0,   0 */  
+#define TFT_BLUE 0x001F                     /*   0,   0, 255 */
+#define TFT_GREEN 0x07E0                    /*   0, 255,   0 */
+#define TFT_CYAN 0x07FF                     /*   0, 255, 255 */
+#define TFT_RED 0xF800                      /* 255,   0,   0 */
 #define TFT_MAGENTA 0xF81F                  /* 255,   0, 255 */
 #define TFT_YELLOW 0xFFE0                   /* 255, 255,   0 */
 #define TFT_WHITE 0xFFFF                    /* 255, 255, 255 */
@@ -39,9 +39,6 @@ public:
     void drawPoint();
     void setSizePoint(byte size = 0);
 
-    void setDrawColor(uint16_t color);
-    void setDrawColor(uint8_t red,uint8_t green,uint8_t blue);
-
 private:
     int xpo, ypo = 0;
     bool Calibration;
@@ -50,9 +47,8 @@ private:
     byte sizePoint = 0;
     int TouchPointX[2] = {0, 1000};
     int TouchPointY[2] = {0, 1000};
-    uint16_t touchPress = 0;
 
-    void centerPrint(const char *s, int y,int width);
+    void centerPrint(const char *s, int y);
     void drawCrossHair(int y, int x, uint16_t color);
     void calibrate();
 };

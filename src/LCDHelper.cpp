@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <LCDHelper.h>
+#include "LCDHelper.h"
 
 // IMPORTANT: LCDWIKI_KBV LIBRARY MUST BE SPECIFICALLY
 // CONFIGURED FOR EITHER THE TFT SHIELD OR THE BREAKOUT BOARD.
@@ -31,7 +31,7 @@ LCDWIKI_KBV mylcd(ILI9341, A3, A2, A1, A0, A4); // model,cs,cd,wr,rd,reset
 // LCDWIKI_KBV mylcd(HX8357D,A3,A2,A1,A0,A4); //model,cs,cd,wr,rd,reset
 // LCDWIKI_KBV mylcd(HX8347G,A3,A2,A1,A0,A4); //model,cs,cd,wr,rd,reset
 // LCDWIKI_KBV mylcd(HX8347I,A3,A2,A1,A0,A4); //model,cs,cd,wr,rd,reset
-// LCDWIKI_KBV mylcd(ILI9486,A3,A2,A1,A0,A4); //model,cs,cd,wr,rd,reset
+// LCDWIKI_KBV mylcd(ILI9486, A3, A2, A1, A0, A4); // model,cs,cd,wr,rd,reset
 // LCDWIKI_KBV mylcd(ST7735S,A3,A2,A1,A0,A4); //model,cs,cd,wr,rd,reset
 
 // if the IC model is not known and the modules is readable,you can use this constructed function
@@ -56,22 +56,15 @@ LCDWIKI_KBV mylcd(ILI9341, A3, A2, A1, A0, A4); // model,cs,cd,wr,rd,reset
 // LCDWIKI_KBV mylcd(320,480,40,38,39,44,41);//width,height,cs,cd,wr,rd,reset
 
 #include <EEPROM.h>
+
 #include <stdint.h>
 #include "TouchScreen.h"
 
-#define touchMirror
-
-#ifdef touchMirror
-#define YP A1 // must be an analog pin, use "An" notation!
-#define XM A2 // must be an analog pin, use "An" notation!
-#define YM 7  // can be a digital pin
-#define XP 6  // can be a digital pin
-#else
-#define YP A2 // must be an analog pin, use "An" notation!
-#define XM A1 // must be an analog pin, use "An" notation!
-#define YM 6  // can be a digital pin
-#define XP 7  // can be a digital pin
-#endif
+#define YP A2             // must be an analog pin, use "An" notation!
+#define XM A1             // must be an analog pin, use "An" notation!
+#define YM 6              // can be a digital pin
+#define XP 7              // can be a digital pin
+#define reversTouch false // if your Touch is work in revers change this value
 
 // For better pressure precision, we need to know the resistance
 // between X+ and X- Use any multimeter to read it
@@ -83,13 +76,13 @@ LCDHelper::LCDHelper()
 {
 }
 
-void LCDHelper::centerPrint(const char *s, int y, int width)
+void LCDHelper::centerPrint(const char *s, int y)
 {
     pinMode(XM, OUTPUT);
     pinMode(YP, OUTPUT);
     int len = strlen(s) * 6;
     mylcd.Set_Text_colour(TFT_WHITE);
-    mylcd.Print_String(s, (width - len) / 2, y - 40);
+    mylcd.Print_String(s, (mylcd.Get_Height() - len) / 2, y - 40);
 }
 
 void LCDHelper::drawCrossHair(int y, int x, uint16_t color)
@@ -102,49 +95,43 @@ void LCDHelper::drawCrossHair(int y, int x, uint16_t color)
 
 void LCDHelper::calibrate()
 {
-    int hight = min(mylcd.Get_Height(), mylcd.Get_Width());
-    int width = max(mylcd.Get_Height(), mylcd.Get_Width());
     int x, y, cnt;
     pinMode(XM, OUTPUT);
     pinMode(YP, OUTPUT);
     mylcd.Fill_Screen(TFT_BLACK);
-    for (x = 10, cnt = 0; x < hight; x += (hight - 20) / 2)
+    for (x = 10, cnt = 0; x < mylcd.Get_Height(); x += (mylcd.Get_Height() - 20) / 2)
     {
-        for (y = 10; y < width; y += (width - 20) / 2)
+        for (y = 10; y < mylcd.Get_Width(); y += (mylcd.Get_Width() - 20) / 2)
         {
-
             if (++cnt != 5)
-            {
                 drawCrossHair(x, y, TFT_BLUE);
-                Serial.print(x);
-                Serial.print(",");
-                Serial.println(y);
-            }
-            // cnt++;
         }
     }
 
-    for (x = 10, cnt = 0; x < hight; x += (hight - 20) / 2)
+    for (x = 10, cnt = 0; x < mylcd.Get_Height(); x += (mylcd.Get_Height() - 20) / 2)
     {
-        for (y = 10; y < width; y += (width - 20) / 2)
+        for (y = 10; y < mylcd.Get_Width(); y += (mylcd.Get_Width() - 20) / 2)
         {
             if (++cnt != 5)
             {
                 pinMode(XM, OUTPUT);
                 pinMode(YP, OUTPUT);
                 drawCrossHair(x, y, TFT_WHITE);
-                centerPrint("*  PRESS  *", (width / 2) - 6, hight);
+                centerPrint("*  PRESS  *", (mylcd.Get_Width() / 2) - 6);
                 while (true)
-                {touchPress = ts.pressure();
-                    if (touchPress < 600 && touchPress > 400)
-                    {
+                {
 
+                    int pressure = ts.pressure();
+                    if ((pressure < 600) && (pressure > 200))
+                    {
                         p = ts.getPoint();
-                        centerPrint("*  HOLD!  *", (width / 2) - 6, hight);
+                        centerPrint("*  HOLD!  *", (mylcd.Get_Width() / 2) - 6);
                         Serial.print("X = ");
                         Serial.print(p.x);
                         Serial.print("\tY = ");
-                        Serial.println(p.y);
+                        Serial.print(p.y);
+                        Serial.print("\tP = ");
+                        Serial.println(pressure);
 
                         TouchPointX[0] = max(TouchPointX[0], p.x);
                         TouchPointX[1] = min(TouchPointX[1], p.x);
@@ -157,7 +144,7 @@ void LCDHelper::calibrate()
                     }
                     delay(10);
                 }
-                centerPrint("* RELEASE *", (width / 2) - 6, hight);
+                centerPrint("* RELEASE *", (mylcd.Get_Width() / 2) - 6);
                 // Serial.println("Wait");
                 while (ts.pressure() != 0)
                 {
@@ -203,32 +190,48 @@ void LCDHelper::bootUp(byte Set_Rotation)
     mylcd.Set_Rotation(3);
     mylcd.Fill_Screen(TFT_BLACK);
 
+    pinMode(XM, OUTPUT);
+    pinMode(YP, OUTPUT);
+
     mylcd.Set_Text_Size(2);
-    mylcd.Fill_Rect(0, 40, 150, 150, TFT_GREEN);
+    int myOffset = (mylcd.Get_Width() + mylcd.Get_Height()) / 20;
+
+    mylcd.Fill_Rect(myOffset, myOffset, (mylcd.Get_Width() / 2) - (myOffset * 1.5), mylcd.Get_Height() - (myOffset * 2), TFT_GREEN);
     mylcd.Set_Text_colour(TFT_BLACK);
     mylcd.Set_Text_Back_colour(TFT_GREEN);
-    mylcd.Print_String("Calibration", 10, 110);
+    mylcd.Print_String("Calibration", (myOffset * 1.2), mylcd.Get_Height() / 2);
 
-    mylcd.Fill_Rect(170, 40, 150, 150, TFT_RED);
+    mylcd.Fill_Rect((mylcd.Get_Width() / 2) + (myOffset * 0.5), myOffset, (mylcd.Get_Width() / 2) - (myOffset * 1.5), (mylcd.Get_Height()) - (myOffset * 2), TFT_RED);
     mylcd.Set_Text_colour(TFT_WHITE);
     mylcd.Set_Text_Back_colour(TFT_RED);
 
-    mylcd.Print_String("Skip", 220, 110);
+    mylcd.Print_String("Skip", (mylcd.Get_Width() / 2) + (myOffset * 1.2), mylcd.Get_Height() / 2);
     while (true)
     {
-        touchPress = ts.pressure();
-        if (touchPress < 600 && touchPress > 400)
+        int pressure = ts.pressure();
+        if ((pressure < 600) && (pressure > 200))
         {
             p = ts.getPoint();
             Serial.print("\t\t\tX = ");
             Serial.print(p.x);
             Serial.print("\tY = ");
             Serial.println(p.y);
-            if (p.y <= 400)
-                Calibration = false;
-            else if (p.y >= 600)
-                Calibration = true;
-            break;
+            if (reversTouch)
+            {
+                if (p.x > 400)
+                    Calibration = false;
+                else if (p.x < 600)
+                    Calibration = true;
+                break;
+            }
+            else
+            {
+                if (p.y < 400)
+                    Calibration = false;
+                else if (p.y > 600)
+                    Calibration = true;
+                break;
+            }
         }
     }
 
@@ -247,7 +250,6 @@ void LCDHelper::bootUp(byte Set_Rotation)
     pinMode(YP, OUTPUT);
     mylcd.Fill_Screen(TFT_BLACK);
     mylcd.Set_Draw_color(TFT_CYAN);
-    drowColorBoxs();
 
     Serial.print(TouchPointX[0]);
     Serial.print('-');
@@ -256,18 +258,32 @@ void LCDHelper::bootUp(byte Set_Rotation)
     Serial.print(TouchPointY[0]);
     Serial.print('-');
     Serial.println(TouchPointY[1]);
+    Serial.println("Mode is:" + String(Set_Rotation));
     mylcd.Set_Rotation(Set_Rotation);
+    drowColorBoxs();
 }
 void LCDHelper::drowColorBoxs()
 {
-    BOXSIZE = mylcd.Get_Height() / 6;
-
-    mylcd.Fill_Rect(0, 0, BOXSIZE, BOXSIZE, TFT_RED);
-    mylcd.Fill_Rect(0, BOXSIZE, BOXSIZE, BOXSIZE, TFT_YELLOW);
-    mylcd.Fill_Rect(0, BOXSIZE * 2, BOXSIZE, BOXSIZE, TFT_GREEN);
-    mylcd.Fill_Rect(0, BOXSIZE * 3, BOXSIZE, BOXSIZE, TFT_CYAN);
-    mylcd.Fill_Rect(0, BOXSIZE * 4, BOXSIZE, BOXSIZE, TFT_BLUE);
-    mylcd.Fill_Rect(0, BOXSIZE * 5, BOXSIZE, BOXSIZE, TFT_MAGENTA);
+    if (mylcd.Get_Rotation() % 2 == 0)
+    {
+        BOXSIZE = mylcd.Get_Width() / 6;
+        mylcd.Fill_Rect(0, 0, BOXSIZE, BOXSIZE, TFT_RED);
+        mylcd.Fill_Rect(BOXSIZE, 0, BOXSIZE, BOXSIZE, TFT_YELLOW);
+        mylcd.Fill_Rect(BOXSIZE * 2, 0, BOXSIZE, BOXSIZE, TFT_GREEN);
+        mylcd.Fill_Rect(BOXSIZE * 3, 0, BOXSIZE, BOXSIZE, TFT_CYAN);
+        mylcd.Fill_Rect(BOXSIZE * 4, 0, BOXSIZE, BOXSIZE, TFT_BLUE);
+        mylcd.Fill_Rect(BOXSIZE * 5, 0, BOXSIZE, BOXSIZE, TFT_MAGENTA);
+    }
+    else
+    {
+        BOXSIZE = mylcd.Get_Height() / 6;
+        mylcd.Fill_Rect(0, 0, BOXSIZE, BOXSIZE, TFT_RED);
+        mylcd.Fill_Rect(0, BOXSIZE, BOXSIZE, BOXSIZE, TFT_YELLOW);
+        mylcd.Fill_Rect(0, BOXSIZE * 2, BOXSIZE, BOXSIZE, TFT_GREEN);
+        mylcd.Fill_Rect(0, BOXSIZE * 3, BOXSIZE, BOXSIZE, TFT_CYAN);
+        mylcd.Fill_Rect(0, BOXSIZE * 4, BOXSIZE, BOXSIZE, TFT_BLUE);
+        mylcd.Fill_Rect(0, BOXSIZE * 5, BOXSIZE, BOXSIZE, TFT_MAGENTA);
+    }
 }
 
 void LCDHelper::drawPoint()
@@ -275,11 +291,13 @@ void LCDHelper::drawPoint()
     p = ts.getPoint();
     // we have some minimum pressure we consider 'valid'
     // pressure of 0 means no pressing!
-
-    
     if (p.z > ts.pressureThreshhold)
     {
-        switch (mylcd.Get_Rotation())
+        int touchMode = mylcd.Get_Rotation();
+        if (reversTouch)
+            touchMode = mylcd.Get_Rotation() + 4;
+
+        switch (touchMode)
         {
         case 0:
             xpo = map(p.x, TouchPointX[1], TouchPointX[0], 0, mylcd.Get_Width());
@@ -297,42 +315,86 @@ void LCDHelper::drawPoint()
             xpo = map(p.y, TouchPointX[0], TouchPointX[1], 0, mylcd.Get_Width());
             ypo = map(p.x, TouchPointY[1], TouchPointY[0], 0, mylcd.Get_Height());
             break;
-
+        case 4:
+            ypo = map(p.x, TouchPointX[0], TouchPointX[1], 0, mylcd.Get_Height());
+            xpo = map(p.y, TouchPointY[0], TouchPointY[1], 0, mylcd.Get_Width());
+            break;
+        case 5:
+            xpo = map(p.x, TouchPointX[0], TouchPointX[1], 0, mylcd.Get_Width());
+            ypo = map(p.y, TouchPointY[1], TouchPointY[0], 0, mylcd.Get_Height());
+            break;
+        case 6:
+            ypo = map(p.x, TouchPointX[1], TouchPointX[0], 0, mylcd.Get_Height());
+            xpo = map(p.y, TouchPointY[1], TouchPointY[0], 0, mylcd.Get_Width());
+            break;
+        case 7:
+            xpo = map(p.x, TouchPointX[1], TouchPointX[0], 0, mylcd.Get_Width());
+            ypo = map(p.y, TouchPointY[0], TouchPointY[1], 0, mylcd.Get_Height());
+            break;
         default:
+            Serial.println("No Mode for Touch");
             break;
         }
 
         pinMode(XM, OUTPUT);
         pinMode(YP, OUTPUT);
-        // Serial.print("x:");
-        // Serial.print(xpo);
-        // Serial.print("\ty:");
-        // Serial.println(ypo);
-        if (xpo > BOXSIZE)
-            if (sizePoint > 0)
-                mylcd.Fill_Circle(xpo, ypo, sizePoint);
-            else
-                mylcd.Draw_Pixel(xpo, ypo);
-        else if (xpo < 0)
-        {
-            mylcd.Fill_Screen(TFT_BLACK);
-            // drowColorBoxs();
-        }
 
+        if (mylcd.Get_Rotation() % 2 == 0)
+        {
+            if (ypo > 50)
+                if (sizePoint > 0)
+                    mylcd.Fill_Circle(xpo, ypo, sizePoint);
+                else
+                    mylcd.Draw_Pixel(xpo, ypo);
+            else if (ypo < 0)
+            {
+                mylcd.Fill_Screen(TFT_BLACK);
+                drowColorBoxs();
+            }
+
+            else
+            {
+                if (xpo < BOXSIZE)
+                    mylcd.Set_Draw_color(TFT_RED);
+                else if (xpo < BOXSIZE * 2 && xpo > BOXSIZE)
+                    mylcd.Set_Draw_color(TFT_YELLOW);
+                else if (xpo < BOXSIZE * 3 && xpo > BOXSIZE * 2)
+                    mylcd.Set_Draw_color(TFT_GREEN);
+                else if (xpo < BOXSIZE * 4 && xpo > BOXSIZE * 3)
+                    mylcd.Set_Draw_color(TFT_CYAN);
+                else if (xpo < BOXSIZE * 5 && xpo > BOXSIZE * 4)
+                    mylcd.Set_Draw_color(TFT_BLUE);
+                else if (xpo < BOXSIZE * 6 && xpo > BOXSIZE * 5)
+                    mylcd.Set_Draw_color(TFT_MAGENTA);
+            }
+        }
         else
         {
-            if (ypo < BOXSIZE)
-                mylcd.Set_Draw_color(TFT_RED);
-            else if (ypo < BOXSIZE * 2 && ypo > BOXSIZE)
-                mylcd.Set_Draw_color(TFT_YELLOW);
-            else if (ypo < BOXSIZE * 3 && ypo > BOXSIZE * 2)
-                mylcd.Set_Draw_color(TFT_GREEN);
-            else if (ypo < BOXSIZE * 4 && ypo > BOXSIZE * 3)
-                mylcd.Set_Draw_color(TFT_CYAN);
-            else if (ypo < BOXSIZE * 5 && ypo > BOXSIZE * 4)
-                mylcd.Set_Draw_color(TFT_BLUE);
-            else if (ypo < BOXSIZE * 6 && ypo > BOXSIZE * 5)
-                mylcd.Set_Draw_color(TFT_MAGENTA);
+            if (xpo > BOXSIZE)
+                if (sizePoint > 0)
+                    mylcd.Fill_Circle(xpo, ypo, sizePoint);
+                else
+                    mylcd.Draw_Pixel(xpo, ypo);
+            else if (xpo < 0)
+            {
+                mylcd.Fill_Screen(TFT_BLACK);
+                drowColorBoxs();
+            }
+            else
+            {
+                if (ypo < BOXSIZE)
+                    mylcd.Set_Draw_color(TFT_RED);
+                else if (ypo < BOXSIZE * 2 && ypo > BOXSIZE)
+                    mylcd.Set_Draw_color(TFT_YELLOW);
+                else if (ypo < BOXSIZE * 3 && ypo > BOXSIZE * 2)
+                    mylcd.Set_Draw_color(TFT_GREEN);
+                else if (ypo < BOXSIZE * 4 && ypo > BOXSIZE * 3)
+                    mylcd.Set_Draw_color(TFT_CYAN);
+                else if (ypo < BOXSIZE * 5 && ypo > BOXSIZE * 4)
+                    mylcd.Set_Draw_color(TFT_BLUE);
+                else if (ypo < BOXSIZE * 6 && ypo > BOXSIZE * 5)
+                    mylcd.Set_Draw_color(TFT_MAGENTA);
+            }
         }
     }
 }
@@ -341,18 +403,4 @@ void LCDHelper::drawPoint()
 void LCDHelper::setSizePoint(byte size)
 {
     sizePoint = size;
-}
-
-void LCDHelper::setDrawColor(uint16_t color)
-{
-    mylcd.Set_Draw_color(color);
-}
-
-void LCDHelper::setDrawColor(uint8_t red, uint8_t green, uint8_t blue)
-{
-    uint8_t redOut = map(red, 0x00, 0xFF, 0x00, 0x1F);
-    uint8_t greenOut = map(green, 0x00, 0xFF, 0x00, 0x3F);
-    uint8_t blueOut = map(blue, 0x00, 0xFF, 0x00, 0x1F);
-
-    mylcd.Set_Draw_color((redOut >> 12) + (greenOut >> 6) + blueOut);
 }
